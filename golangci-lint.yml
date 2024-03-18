@@ -1,0 +1,64 @@
+run:
+  concurrency: 4
+  timeout: 5m
+  issues-exit-code: 20
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - cyclop
+    - lll
+    - funlen
+    - unparam
+    - nestif
+    - revive
+    - misspell
+    - nilerr
+  fast: false
+
+linters-settings:
+  lll:
+    line-length: 140
+  cyclop:
+    max-complexity: 20
+    package-average: 0.0
+    skip-tests: true
+  funlen:
+    lines: 40
+    statements: 30
+  nestif:
+    min-complexity: 7
+  revive:
+    severity: error
+    rules:
+      - name: confusing-naming
+        severity: warning
+        disabled: false
+      - name: error-naming
+        severity: warning
+        disabled: false
+      - name: var-naming
+        severity: warning
+        disabled: false
+        arguments:
+          - ["ID"] # AllowList
+          - ["VM"] # DenyList
+      - name: unexported-naming
+        severity: warning
+        disabled: false
+      - name: argument-limit
+        severity: warning
+        disabled: false
+        arguments: [5]
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen
