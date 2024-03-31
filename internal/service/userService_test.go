@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,9 +22,9 @@ func TestHashPassword(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			hash, err := HashPassword(test.Password)
-			assert.NoError(t, err)
-			res := PasswordIsMatch(hash, test.Password)
+			hash := HashPassword(test.Password)
+			res := CompareToHash(hash, test.Password)
+			fmt.Println()
 			assert.Equal(t, test.Want, res)
 		})
 	}

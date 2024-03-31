@@ -1,0 +1,20 @@
+###
+POST http://localhost:8080/register
+Content-Type: application/json; charset=utf-8
+
+{
+    "login": "log",
+    "name": "naasdsaassaavxs",
+    "surname": "mpasssdxxcasadasdsde",
+    "password": "pass"
+}
+
+###
+
+POST http://localhost:8080/login
+Content-Type: application/json; charset=utf-8
+
+{
+    "login": "log",
+    "password": "pass"
+}

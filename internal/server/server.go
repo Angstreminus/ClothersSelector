@@ -36,26 +36,15 @@ func (s *Server) MustRun() {
 	}
 	repo := repository.NewUserRepository(redis, dbHandler, s.Logger)
 	s.Logger.ZapLogger.Info("User repository initialized")
-	service := service.NewUserService(repo)
+	service := service.NewUserService(repo, logger.Log)
 	s.Logger.ZapLogger.Info("User service initialized")
-	handler := handler.NewUserHandler(service)
+	handler := handler.NewUserHandler(service, logger.Log)
 	s.Logger.ZapLogger.Info("User handler initialized")
-
 	router := http.NewServeMux()
-	s.Logger.ZapLogger.Info("Router initialized")
 	s.Router = router
-	router.HandleFunc("POST /register", handler.RegisterUser)
-	router.HandleFunc("POST /login", handler.LoginUser)
-	router.HandleFunc("POST /actors")
-	router.HandleFunc("PUT /actors/{id}/")
-	router.HandleFunc("DELETE /actors/{id}")
-	router.HandleFunc("GET /movies")
-	router.HandleFunc("GET /movies/{id}/actors")
-	router.HandleFunc("POST /movies")
-	router.HandleFunc("PUT /movies/{id}")
-	router.HandleFunc("DELETE /movies/{id}")
-
-	if err := http.ListenAndServe(s.Config.ServerAddr, s.Router); err != nil {
+	router.HandleFunc("/register", handler.RegisterUser)
+	router.HandleFunc("/login", handler.LoginUser)
+	if err := http.ListenAndServe(":8080", s.Router); err != nil {
 		s.Logger.ZapLogger.Fatal("Error to run server")
 	}
 	s.Logger.ZapLogger.Info("Server is running")

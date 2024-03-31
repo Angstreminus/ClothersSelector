@@ -49,6 +49,22 @@ func (error *AuthError) Error() string {
 	return error.Message
 }
 
+type UserNotExitError struct {
+	Message string
+}
+
+func (error *UserNotExitError) Error() string {
+	return error.Message
+}
+
+type UserExistError struct {
+	Message string
+}
+
+func (error *UserExistError) Error() string {
+	return error.Message
+}
+
 type AppError interface {
 	Error() string
 }
@@ -64,6 +80,11 @@ func MatchError(appErr AppError) *ResponseError {
 		return &ResponseError{
 			Message: ae.Message,
 			Status:  http.StatusBadRequest,
+		}
+	case *UserExistError:
+		return &ResponseError{
+			Message: ae.Message,
+			Status:  http.StatusConflict,
 		}
 	case *AuthError:
 		return &ResponseError{

@@ -1,15 +1,15 @@
 package service
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"github.com/absagar/go-bcrypt"
+)
 
-func HashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	return string(hash), err
+func HashPassword(password string) string {
+	salt, _ := bcrypt.Salt(10)
+	hash, _ := bcrypt.Hash(password, salt)
+	return hash
 }
 
-func PasswordIsMatch(hash, password string) bool {
-	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
-		return false
-	}
-	return true
+func CompareToHash(hash, password string) bool {
+	return bcrypt.Match(hash, password)
 }

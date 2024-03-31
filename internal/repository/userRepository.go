@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Angstreminus/ClothersSelector/internal/apperrors"
@@ -28,20 +30,12 @@ func NewUserRepository(chache *chache.Chache, db *sqlx.DB, log *logger.Logger) *
 	}
 }
 
-func (ur *UserRepository) RegisterUser(user *entity.User, ctx *context.Context) (*entity.User, apperrors.AppError) {
-	user.CreatedAt = time.Now().Format("2006-01-02 15:04:05.999")
-	user.IsDeleted = false
-	query := `INSERT INTO users VALUES(id, login, name, surname, hashed_password, is_deleted) $1, $2, $3, $4, $5, $6 RETURNING *;`
-	stmt, err := ur.DB.PrepareContext(*ctx, query)
-	if err != nil {
-		ur.Logger.ZapLogger.Error("Preparing statement error")
-		return nil, &apperrors.DBoperationErr{
-			Message: err.Error(),
-		}
-	}
+func (ur *UserRepository) RegisterUser(user entity.User) (*entity.User, apperrors.AppError) {
+	user.CreatedAt = time.Now().Local().UTC()
+	query := "INSERT INTO users (id, login, name, surname, role, hashed_password, is_deleted, created_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, login, name, surname, role, hashed_password, is_deleted, created_at;"
 	var usr entity.User
-	err = stmt.QueryRowContext(*ctx, &user).Scan(&usr)
-	if err != nil {
+	row := ur.DB.QueryRowx(query, &user.Id, &user.Login, &user.Name, &user.Surname, &user.Role, &user.HashedPassword, &user.IsDeleted, &user.CreatedAt)
+	if err := row.StructScan(&usr); err != nil {
 		ur.Logger.ZapLogger.Error("Query error")
 		return nil, &apperrors.DBoperationErr{
 			Message: err.Error(),
@@ -51,15 +45,32 @@ func (ur *UserRepository) RegisterUser(user *entity.User, ctx *context.Context) 
 	return &usr, nil
 }
 
-func (ur *UserRepository) UpdateUser(ctx *context.Context, toUpdate *entity.User) (*entity.User, apperrors.AppError) {
-	toUpdate.UpdatedAt = time.Now().Format("2006-01-02 15:04:05.999")
+func (ur *UserRepository) UserExists(login string) (bool, apperrors.AppError) {
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE login=$1);`
+	var exist bool = false
+	err := ur.DB.QueryRowx(query, login).Scan(&exist)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ur.Logger.ZapLogger.Info("User does not exist")
+			return false, nil
+		}
+		ur.Logger.ZapLogger.Error("Existance Query error")
+		return true, &apperrors.DBoperationErr{
+			Message: err.Error(),
+		}
+	}
+	return exist, nil
+}
+
+func (ur *UserRepository) UpdateUser(ctx context.Context, toUpdate *entity.User) (*entity.User, apperrors.AppError) {
+	toUpdate.UpdatedAt = time.Now().Local().UTC()
 	toUpdate.IsDeleted = false
 	query := `
 	UPDATE users
 	SET name=$1, login=#2, surname=$3, hashed_password=$4, is_deleted=$5, updated_at=$6)
 	WHERE id::text=$6 RETURNINIG *;`
 	var res entity.User
-	stmt, err := ur.DB.PrepareContext(*ctx, query)
+	stmt, err := ur.DB.PrepareContext(ctx, query)
 	ur.Logger.ZapLogger.Error("")
 	if err != nil {
 		ur.Logger.ZapLogger.Error("Preparing statement error")
@@ -67,7 +78,7 @@ func (ur *UserRepository) UpdateUser(ctx *context.Context, toUpdate *entity.User
 			Message: err.Error(),
 		}
 	}
-	if err = stmt.QueryRowContext(*ctx, &toUpdate).Scan(res); err != nil {
+	if err = stmt.QueryRowContext(ctx, &toUpdate).Scan(res); err != nil {
 		if err == sql.ErrNoRows {
 			ur.Logger.ZapLogger.Error("Update: No rows error")
 			return nil, &apperrors.DBoperationErr{
@@ -117,43 +128,22 @@ func (ur *UserRepository) DeleteUser(ctx *context.Context, userId uuid.UUID) app
 	return nil
 }
 
-func (ur *UserRepository) GetUser(ctx *context.Context, userId uuid.UUID) (*entity.User, apperrors.AppError) {
-	query := `SELECT * FROM users WHERE id::text=$1;`
-	var res *entity.User
-	stmt, err := ur.DB.PrepareContext(*ctx, query)
-	if err != nil {
+func (ur *UserRepository) GetUserByLogin(login dto.LoginRequest) (*entity.User, apperrors.AppError) {
+	query := `SELECT id, login, name, surname, role, hashed_password, is_deleted FROM users WHERE (login=$1);`
+	fmt.Println("Repository started log in operation")
+	row := ur.DB.QueryRowx(query, &login.Login)
+	var user entity.User
+	if err := row.StructScan(&user); err != nil {
 		ur.Logger.ZapLogger.Error("Preparing statement error")
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, &apperrors.AuthError{
+				Message: "Such user does not exists",
+			}
+		}
 		return nil, &apperrors.DBoperationErr{
 			Message: err.Error(),
 		}
 	}
-	if err = stmt.QueryRowContext(*ctx, userId).Scan(res); err != nil {
-		ur.Logger.ZapLogger.Error("Error while scanning entity")
-		return nil, &apperrors.DBoperationErr{
-			Message: err.Error(),
-		}
-	}
-	ur.Logger.ZapLogger.Info("User extracted successfully")
-	return res, nil
-}
-
-func (ur *UserRepository) UserIsExist(ctx *context.Context, userSignature *dto.UserSignature) (bool, error) {
-	query := `SELECT EXIST(SELECT 1 FROM users WHERE login = $1 AND hashed_password = $2);`
-	stmt, err := ur.DB.PrepareContext(*ctx, query)
-	if err != nil {
-		ur.Logger.ZapLogger.Error("Preparing statement error")
-		return true, &apperrors.DBoperationErr{
-			Message: err.Error(),
-		}
-	}
-	var exist bool
-	err = stmt.QueryRowContext(*ctx, &userSignature.Login, &userSignature.Password).Scan(&exist)
-	if err != nil {
-		ur.Logger.ZapLogger.Error("Query error")
-		return true, &apperrors.DBoperationErr{
-			Message: err.Error(),
-		}
-	}
-	ur.Logger.ZapLogger.Info("User does not exist")
-	return exist, nil
+	ur.Logger.ZapLogger.Info("User found successfully")
+	return &user, nil
 }

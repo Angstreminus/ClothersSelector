@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/Angstreminus/ClothersSelector/internal/auth/token"
 	"github.com/Angstreminus/ClothersSelector/internal/dto"
 	"github.com/Angstreminus/ClothersSelector/internal/service"
+	"github.com/Angstreminus/ClothersSelector/logger"
 )
 
 type Cookie struct {
@@ -19,46 +21,132 @@ type Cookie struct {
 
 type UserHandler struct {
 	UserService *service.UserService
+	Logger      *logger.Logger
 }
 
-func NewUserHandler(usrServ *service.UserService) *UserHandler {
+func NewUserHandler(usrServ *service.UserService, log *logger.Logger) *UserHandler {
 	return &UserHandler{
 		UserService: usrServ,
+		Logger:      log,
 	}
 }
 
 func (uh *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
-	var toRegistrate *dto.ReisterRequest
-	if err := json.NewDecoder(r.Body).Decode(toRegistrate); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-	user, err := uh.UserService.RegiterUser(toRegistrate)
+	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
 	if err != nil {
+		uh.Logger.ZapLogger.Error("Error to handle request")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	var toRegistrate dto.RegisterRequest
+	if err = json.Unmarshal(body, &toRegistrate); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		uh.Logger.ZapLogger.Error("Error to handle request")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	user, err := uh.UserService.RegisterUser(toRegistrate)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		respErr := apperrors.MatchError(err)
 		w.WriteHeader(respErr.Status)
 		_ = json.NewEncoder(w).Encode(respErr)
+		return
 	}
 	tokenPair, err := token.CreateTokenPair(user, uh.UserService.Ur.Chache.Config)
 	if err != nil {
 		respErr := apperrors.MatchError(err)
 		w.WriteHeader(respErr.Status)
 		_ = json.NewEncoder(w).Encode(respErr)
+		return
 	}
 	ctx := context.Background()
 	exp, err := strconv.Atoi(uh.UserService.Ur.Chache.Config.RefExp)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	uh.UserService.Ur.Chache.RedisChahe.Set(ctx, tokenPair.Refresh, user.Id.String(), time.Minute*time.Duration(exp))
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Authorization:", "Bearer "+tokenPair.Access)
+	err = uh.UserService.Ur.Chache.RedisChahe.Set(ctx, tokenPair.Refresh, user.Id, time.Minute*time.Duration(exp)).Err()
+	if err != nil {
+		uh.Logger.ZapLogger.Error("Error to save token")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Enable to save token"))
+		return
+	}
 	cookie := http.Cookie{
-		Name:  "Refresh",
-		Value: tokenPair.Refresh,
+		Name:     "Refresh",
+		Value:    tokenPair.Refresh,
+		HttpOnly: true,
 	}
 	http.SetCookie(w, &cookie)
-	w.Header().Set("Authorization", "bearer access_token")
+
+	w.Header().Set("Authorization", "Bearer "+tokenPair.Access)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	if err = json.NewEncoder(w).Encode(user); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
+}
+
+func (uh *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		uh.Logger.ZapLogger.Error("Error to handle request")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	var loginReq dto.LoginRequest
+	if err = json.Unmarshal(body, &loginReq); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		uh.Logger.ZapLogger.Error("Error to handle request")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	user, err := uh.UserService.LoginUser(loginReq)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		respErr := apperrors.MatchError(err)
+		w.WriteHeader(respErr.Status)
+		_ = json.NewEncoder(w).Encode(respErr)
+		return
+	}
+	tokenPair, err := token.CreateTokenPair(user, uh.UserService.Ur.Chache.Config)
+	if err != nil {
+		respErr := apperrors.MatchError(err)
+		w.WriteHeader(respErr.Status)
+		_ = json.NewEncoder(w).Encode(respErr)
+		return
+	}
+	ctx := context.Background()
+	exp, err := strconv.Atoi(uh.UserService.Ur.Chache.Config.RefExp)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	err = uh.UserService.Ur.Chache.RedisChahe.Set(ctx, tokenPair.Refresh, user.Id, time.Minute*time.Duration(exp)).Err()
+	if err != nil {
+		uh.Logger.ZapLogger.Error("Error to save token")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Enable to save token"))
+		return
+	}
+	cookie := http.Cookie{
+		Name:     "Refresh",
+		Value:    tokenPair.Refresh,
+		HttpOnly: true,
+	}
+	http.SetCookie(w, &cookie)
+
+	w.Header().Set("Authorization", "Bearer "+tokenPair.Access)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 }

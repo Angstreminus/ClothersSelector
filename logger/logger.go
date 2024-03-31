@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"fmt"
 	"log"
 	"sync"
 
@@ -20,10 +19,8 @@ var (
 func MustInitLogger() *Logger {
 	once.Do(
 		func() {
-			fmt.Println("Here2")
 			zaplogger, err := zap.NewDevelopment()
 			if err != nil {
-				fmt.Println("Error here3")
 				log.Fatal(err)
 			}
 			Log = &Logger{

@@ -9,12 +9,11 @@ import (
 	"github.com/Angstreminus/ClothersSelector/internal/dto"
 	"github.com/Angstreminus/ClothersSelector/internal/entity"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/google/uuid"
 )
 
 type CustomToken struct {
-	UUID  uuid.UUID `json:"uuid"`
-	Login string    `json:"login"`
+	UUID  string `json:"uuid"`
+	Login string `json:"login"`
 	jwt.RegisteredClaims
 }
 

@@ -1,14 +1,16 @@
 package entity
 
-import "github.com/google/uuid"
+import (
+	"time"
+)
 
 type Preset struct {
-	Id        uuid.UUID `db:"id"`
+	Id        string    `db:"id"`
 	Name      string    `db:"name"`
-	UserId    uuid.UUID `db:"user_id"`
-	IsDeleted bool      `db:"is_deleted"`
+	UserId    string    `db:"user_id"`
 	Season    string    `db:"season"`
-	CreatedAt string    `db:"created_at"`
-	UpdatedAt string    `db:"updated_at"`
-	DeletedAt string    `db:"deleted_at"`
+	IsDeleted bool      `db:"is_deleted"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+	DeletedAt time.Time `db:"deleted_at"`
 }

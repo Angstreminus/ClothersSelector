@@ -1,10 +1,10 @@
 package dto
 
-type ReisterRequest struct {
-	Login    string `json:"login" validate:"required"`
-	Name     string `json:"name" validate:"required"`
-	Surname  string `json:"surname" validate:"required"`
-	Password string `json:"password" validate:"required"`
+type RegisterRequest struct {
+	Login    string `json:"login"`
+	Name     string `json:"name"`
+	Surname  string `json:"surname"`
+	Password string `json:"password"`
 }
 
 type LoginRequest struct {
