@@ -26,6 +26,10 @@ func NewServer(cfg *config.Config, logger *logger.Logger) *Server {
 }
 
 func (s *Server) MustRun() {
+	cfg, err := config.NewConfig()
+	if err != nil {
+		s.Logger.ZapLogger.Error("Error to load config")
+	}
 	dbHandler, err := postgres.NewDatabaseHandler(s.Config)
 	if err != nil {
 		s.Logger.ZapLogger.Error("Error to init postgres")
@@ -38,7 +42,7 @@ func (s *Server) MustRun() {
 	s.Logger.ZapLogger.Info("User repository initialized")
 	service := service.NewUserService(repo, logger.Log)
 	s.Logger.ZapLogger.Info("User service initialized")
-	handler := handler.NewUserHandler(service, logger.Log)
+	handler := handler.NewUserHandler(service, logger.Log, cfg)
 	s.Logger.ZapLogger.Info("User handler initialized")
 	router := http.NewServeMux()
 	s.Router = router

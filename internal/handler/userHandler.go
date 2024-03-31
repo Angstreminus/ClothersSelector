@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Angstreminus/ClothersSelector/config"
 	"github.com/Angstreminus/ClothersSelector/internal/apperrors"
 	"github.com/Angstreminus/ClothersSelector/internal/auth/token"
 	"github.com/Angstreminus/ClothersSelector/internal/dto"
@@ -22,12 +23,14 @@ type Cookie struct {
 type UserHandler struct {
 	UserService *service.UserService
 	Logger      *logger.Logger
+	Config      *config.Config
 }
 
-func NewUserHandler(usrServ *service.UserService, log *logger.Logger) *UserHandler {
+func NewUserHandler(usrServ *service.UserService, log *logger.Logger, cfg *config.Config) *UserHandler {
 	return &UserHandler{
 		UserService: usrServ,
 		Logger:      log,
+		Config:      cfg,
 	}
 }
 
@@ -57,7 +60,7 @@ func (uh *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(respErr)
 		return
 	}
-	tokenPair, err := token.CreateTokenPair(user, uh.UserService.Ur.Chache.Config)
+	tokenPair, err := token.CreateTokenPair(user, uh.Config)
 	if err != nil {
 		respErr := apperrors.MatchError(err)
 		w.WriteHeader(respErr.Status)
@@ -65,7 +68,7 @@ func (uh *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := context.Background()
-	exp, err := strconv.Atoi(uh.UserService.Ur.Chache.Config.RefExp)
+	exp, err := strconv.Atoi(uh.Config.RefExp)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -80,6 +83,7 @@ func (uh *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	cookie := http.Cookie{
 		Name:     "Refresh",
 		Value:    tokenPair.Refresh,
+		Expires:  time.Now().Add(time.Duration(exp) * time.Minute),
 		HttpOnly: true,
 	}
 	http.SetCookie(w, &cookie)
@@ -142,6 +146,7 @@ func (uh *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	cookie := http.Cookie{
 		Name:     "Refresh",
 		Value:    tokenPair.Refresh,
+		Expires:  time.Now().Add(time.Duration(exp) * time.Minute),
 		HttpOnly: true,
 	}
 	http.SetCookie(w, &cookie)

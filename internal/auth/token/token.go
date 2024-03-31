@@ -22,6 +22,32 @@ type TokenPair struct {
 	Refresh string
 }
 
+func ExtractFromToken(reqtoken string, cfg *config.Config) (*dto.UserSignature, error) {
+	token, err := jwt.Parse(reqtoken, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, &apperrors.AuthError{
+				Message: "INVALID SIGNING METHOD",
+			}
+		}
+		return []byte(cfg.AccSecr), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok && !token.Valid {
+		return nil, &apperrors.AuthError{
+			Message: "INVALID TOKEN",
+		}
+	}
+	var usrSign dto.UserSignature
+	usrSign.Login = claims["login"].(string)
+	usrSign.Password = claims["password"].(string)
+	return &usrSign, nil
+}
+
 func CreateToken(user *entity.User, expTime, secret string) (string, apperrors.AppError) {
 	tokenExpTime, err := strconv.Atoi(expTime)
 	if err != nil {
@@ -38,7 +64,7 @@ func CreateToken(user *entity.User, expTime, secret string) (string, apperrors.A
 			},
 		},
 	}
-	templ := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	templ := jwt.NewWithClaims(&jwt.SigningMethodHMAC{}, claims)
 
 	token, err := templ.SignedString([]byte(secret))
 	if err != nil {
@@ -62,32 +88,6 @@ func IsAuthorized(token string, cfg *config.Config) (bool, apperrors.AppError) {
 		}
 	}
 	return true, nil
-}
-
-func ExtractFromToken(reqtoken string, cfg *config.Config) (*dto.UserSignature, error) {
-	token, err := jwt.Parse(reqtoken, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, &apperrors.AuthError{
-				Message: "INVALID SIGNING METHOD",
-			}
-		}
-		return []byte(cfg.AccSecr), nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok && !token.Valid {
-		return nil, &apperrors.AuthError{
-			Message: "INVALID TOKEN",
-		}
-	}
-	var usrSign dto.UserSignature
-	usrSign.Login = claims["login"].(string)
-	usrSign.Password = claims["ID"].(string)
-	return &usrSign, nil
 }
 
 func CreateTokenPair(user *entity.User, cfg *config.Config) (*TokenPair, apperrors.AppError) {
