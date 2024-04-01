@@ -10,6 +10,7 @@ import (
 	"github.com/Angstreminus/ClothersSelector/internal/repository"
 	"github.com/Angstreminus/ClothersSelector/internal/service"
 	"github.com/Angstreminus/ClothersSelector/logger"
+	middleware "github.com/Angstreminus/ClothersSelector/middleware/auth"
 )
 
 type Server struct {
@@ -38,16 +39,29 @@ func (s *Server) MustRun() {
 	if err != nil {
 		s.Logger.ZapLogger.Error("Error to init redis")
 	}
-	repo := repository.NewUserRepository(redis, dbHandler, s.Logger)
+	userRepo := repository.NewUserRepository(redis, dbHandler, s.Logger)
+	presetRepo := repository.NewPresetRepository(dbHandler, s.Logger)
 	s.Logger.ZapLogger.Info("User repository initialized")
-	service := service.NewUserService(repo, logger.Log)
+	userService := service.NewUserService(userRepo, logger.Log)
+	prestService := service.NewPresetService(presetRepo, s.Logger)
 	s.Logger.ZapLogger.Info("User service initialized")
-	handler := handler.NewUserHandler(service, logger.Log, cfg)
+	userHandler := handler.NewUserHandler(userService, logger.Log, cfg)
+	presetHandler := handler.NewPresetHandler(cfg, prestService, s.Logger)
 	s.Logger.ZapLogger.Info("User handler initialized")
+	authmiddleware := middleware.NewAuthMiddleware(cfg, userRepo)
 	router := http.NewServeMux()
 	s.Router = router
-	router.HandleFunc("/register", handler.RegisterUser)
-	router.HandleFunc("/login", handler.LoginUser)
+	router.HandleFunc("POST /register", userHandler.RegisterUser)
+	router.HandleFunc("POST /login", userHandler.LoginUser)
+	router.HandleFunc("POST /users/:id/presets", authmiddleware.ValidateToken(presetHandler.CreatePreset))
+	// !TODO:
+	// !!! FIX code below
+	router.HandleFunc("GET /users/:id/presets", authmiddleware.ValidateToken(presetHandler.CreatePreset))
+	router.HandleFunc("GET /users/:id/presets/:id", authmiddleware.ValidateToken(presetHandler.CreatePreset))
+	router.HandleFunc("DELETE /users/:id/presets/:id", authmiddleware.ValidateToken(presetHandler.CreatePreset))
+	router.HandleFunc("POST /users/:id/presets/:id/clothes", authmiddleware.ValidateToken(presetHandler.CreatePreset))
+	router.HandleFunc("POST /users/:id/presets/:id/clothes", authmiddleware.ValidateToken(presetHandler.CreatePreset))
+	router.HandleFunc("POST /users/:id/presets/:id/clothes", authmiddleware.ValidateToken(presetHandler.CreatePreset))
 	if err := http.ListenAndServe(":8080", s.Router); err != nil {
 		s.Logger.ZapLogger.Fatal("Error to run server")
 	}

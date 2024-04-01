@@ -26,3 +26,7 @@ func (cs *ClothesService) CreateItem(toCreate dto.Clothes) (*entity.Clothes, app
 	toCreate.IsDeleted = false
 	return cs.Repo.Create(toCreate)
 }
+
+func (cs *ClothesService) GetItems(clothId, presetId, season, userId string) ([]entity.Clothes, apperrors.AppError) {
+	return cs.Repo.GetClothes(clothId, presetId, season, userId)
+}

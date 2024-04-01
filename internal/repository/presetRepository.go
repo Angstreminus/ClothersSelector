@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/Angstreminus/ClothersSelector/internal/apperrors"
@@ -34,4 +36,23 @@ func (pr *PresetRepository) CreatePreset(preset *entity.Preset) (*entity.Preset,
 	}
 	pr.Logger.ZapLogger.Info("Preset created")
 	return &prst, nil
+}
+
+func (pr *PresetRepository) GetPresetById(id string) (*entity.Preset, apperrors.AppError) {
+	query := `SELECT id, name, season, user_id, is_deleted, created_at FROM presets WHERE (id=$1);`
+	row := pr.DB.QueryRowx(query, &id)
+	var preset entity.Preset
+	if err := row.StructScan(&preset); err != nil {
+		pr.Logger.ZapLogger.Error("Preparing statement error")
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, &apperrors.AuthError{
+				Message: "Such user does not exists",
+			}
+		}
+		return nil, &apperrors.DBoperationErr{
+			Message: err.Error(),
+		}
+	}
+	pr.Logger.ZapLogger.Info("User found successfully")
+	return &preset, nil
 }

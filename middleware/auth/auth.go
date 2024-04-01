@@ -17,6 +17,13 @@ type AuthMiddleware struct {
 	UserRepository *repository.UserRepository
 }
 
+func NewAuthMiddleware(cfg *config.Config, repo *repository.UserRepository) *AuthMiddleware {
+	return &AuthMiddleware{
+		Cofig:          cfg,
+		UserRepository: repo,
+	}
+}
+
 func (am *AuthMiddleware) ValidateToken(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")

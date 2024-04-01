@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/Angstreminus/ClothersSelector/internal/apperrors"
@@ -130,7 +129,6 @@ func (ur *UserRepository) DeleteUser(ctx *context.Context, userId uuid.UUID) app
 
 func (ur *UserRepository) GetUserByLogin(login dto.LoginRequest) (*entity.User, apperrors.AppError) {
 	query := `SELECT id, login, name, surname, role, hashed_password, is_deleted FROM users WHERE (login=$1);`
-	fmt.Println("Repository started log in operation")
 	row := ur.DB.QueryRowx(query, &login.Login)
 	var user entity.User
 	if err := row.StructScan(&user); err != nil {
