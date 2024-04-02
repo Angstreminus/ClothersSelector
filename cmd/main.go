@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/Angstreminus/ClothersSelector/config"
@@ -11,12 +10,11 @@ import (
 
 func main() {
 	cfg, err := config.NewConfig()
-	fmt.Println(cfg.RedisAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	zaplog := logger.MustInitLogger()
 	zaplog.ZapLogger.Info("Logger initialized")
-	Server := server.NewServer(cfg, zaplog)
+	Server := server.NewServer(&cfg, zaplog)
 	Server.MustRun()
 }

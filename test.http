@@ -3,8 +3,8 @@ POST http://localhost:8080/register
 Content-Type: application/json; charset=utf-8
 
 {
-    "login": "log",
-    "name": "naasdsaassaavxs",
+    "login": "wa123sd12213saasd1asd2",
+    "name": "naasasddsaassaavxs",
     "surname": "mpasssdxxcasadasdsde",
     "password": "pass"
 }
@@ -15,6 +15,26 @@ POST http://localhost:8080/login
 Content-Type: application/json; charset=utf-8
 
 {
-    "login": "log",
+    "login": "12323z311zz2123",
     "password": "pass"
+}
+
+###
+
+POST http://localhost:8080/users/2c2f9c38-b66e-4cc9-b35b-1387905755d5/presets
+Content-Type: application/json; charset=utf-8
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTIwNTk3MTYsInN1YiI6IndhMTIzc2QxMjIxM3NhYXNkMWFzZDIifQ.yFbpNHfbqc1pH7HFD940XPpsKZTHQt_3yjkEvjY9Uxc
+
+{
+    "name": "Sumsadasdsasmer skin",
+	"season": "Summeasasddadr"
+}
+
+POST http://localhost:8080/users/2c2f9c38-b66e-4cc9-b35b-1387905755d5/presets/id/clothes
+Content-Type: application/json; charset=utf-8
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTIwNTk3MTYsInN1YiI6IndhMTIzc2QxMjIxM3NhYXNkMWFzZDIifQ.yFbpNHfbqc1pH7HFD940XPpsKZTHQt_3yjkEvjY9Uxc
+
+{
+    "name": "Sumsadasdsasmer skin",
+	"season": "Summeasasddadr"
 }

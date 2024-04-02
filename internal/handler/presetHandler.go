@@ -46,13 +46,10 @@ func (ph *PresetHandler) CreatePreset(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	ph.Logger.ZapLogger.Info(r.URL.Path)
-	ph.Logger.ZapLogger.Info(strings.Split(r.URL.Path, "/")[1])
 	var preset entity.Preset
 	preset.Name = prReq.Name
 	preset.Season = prReq.Season
-	preset.UserId = strings.Split(r.URL.Path, "/")[1]
-
+	preset.UserId = strings.Split(r.URL.Path, "/")[2]
 	res, err := ph.Serv.CreatePreset(preset)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")

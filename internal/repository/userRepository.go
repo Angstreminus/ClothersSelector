@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Angstreminus/ClothersSelector/internal/apperrors"
@@ -29,19 +30,22 @@ func NewUserRepository(chache *chache.Chache, db *sqlx.DB, log *logger.Logger) *
 	}
 }
 
-func (ur *UserRepository) RegisterUser(user entity.User) (*entity.User, apperrors.AppError) {
+func (ur *UserRepository) RegisterUser(user entity.User) (entity.User, apperrors.AppError) {
 	user.CreatedAt = time.Now().Local().UTC()
 	query := "INSERT INTO users (id, login, name, surname, role, hashed_password, is_deleted, created_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, login, name, surname, role, hashed_password, is_deleted, created_at;"
 	var usr entity.User
 	row := ur.DB.QueryRowx(query, &user.Id, &user.Login, &user.Name, &user.Surname, &user.Role, &user.HashedPassword, &user.IsDeleted, &user.CreatedAt)
 	if err := row.StructScan(&usr); err != nil {
 		ur.Logger.ZapLogger.Error("Query error")
-		return nil, &apperrors.DBoperationErr{
+		return entity.User{}, &apperrors.DBoperationErr{
 			Message: err.Error(),
 		}
 	}
+	fmt.Println(usr.Id)
+	fmt.Println(usr.Login)
+	fmt.Println(usr.Name)
 	ur.Logger.ZapLogger.Info("User created")
-	return &usr, nil
+	return usr, nil
 }
 
 func (ur *UserRepository) UserExists(login string) (bool, apperrors.AppError) {

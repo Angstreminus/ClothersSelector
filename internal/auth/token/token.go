@@ -1,106 +1,80 @@
-package token
+package authtoken
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/Angstreminus/ClothersSelector/config"
 	"github.com/Angstreminus/ClothersSelector/internal/apperrors"
-	"github.com/Angstreminus/ClothersSelector/internal/dto"
 	"github.com/Angstreminus/ClothersSelector/internal/entity"
 	"github.com/golang-jwt/jwt/v4"
 )
-
-type CustomToken struct {
-	UUID  string `json:"uuid"`
-	Login string `json:"login"`
-	jwt.RegisteredClaims
-}
 
 type TokenPair struct {
 	Access  string
 	Refresh string
 }
 
-func ExtractFromToken(reqtoken string, cfg *config.Config) (*dto.UserSignature, error) {
-	token, err := jwt.Parse(reqtoken, func(token *jwt.Token) (interface{}, error) {
+func DecodeToken(tokenString, secret string) (jwt.MapClaims, apperrors.AppError) {
+	secretBytes := []byte(secret)
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, &apperrors.AuthError{
-				Message: "INVALID SIGNING METHOD",
+			return nil, &apperrors.TokenError{
+				Message: "Wrong method",
 			}
 		}
-		return []byte(cfg.AccSecr), nil
+		return secretBytes, nil
 	})
-
 	if err != nil {
+		fmt.Println("Error to parse bytes")
 		return nil, err
 	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok && !token.Valid {
-		return nil, &apperrors.AuthError{
-			Message: "INVALID TOKEN",
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return claims, nil
+	} else {
+		fmt.Println("Wrong token")
+		return nil, &apperrors.TokenError{
+			Message: "Wrong token",
 		}
 	}
-	var usrSign dto.UserSignature
-	usrSign.Login = claims["login"].(string)
-	usrSign.Password = claims["password"].(string)
-	return &usrSign, nil
 }
 
-func CreateToken(user *entity.User, expTime, secret string) (string, apperrors.AppError) {
+func CreateToken(user entity.User, expTime, secret string) (string, apperrors.AppError) {
 	tokenExpTime, err := strconv.Atoi(expTime)
 	if err != nil {
 		return "", &apperrors.TokenError{
 			Message: err.Error(),
 		}
 	}
-	claims := &CustomToken{
-		Login: user.Login,
-		UUID:  user.Id,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: &jwt.NumericDate{
-				Time: time.Now().Add(time.Minute * time.Duration(tokenExpTime)),
-			},
-		},
+	payload := jwt.MapClaims{
+		"sub": user.Login,
+		"exp": time.Now().Add(time.Minute * time.Duration(tokenExpTime)).Unix(),
 	}
-	templ := jwt.NewWithClaims(&jwt.SigningMethodHMAC{}, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, payload)
 
-	token, err := templ.SignedString([]byte(secret))
+	t, err := token.SignedString([]byte(secret))
 	if err != nil {
-		return "", err
-	}
-	return token, err
-}
-
-func IsAuthorized(token string, cfg *config.Config) (bool, apperrors.AppError) {
-	_, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, &apperrors.AuthError{
-				Message: "INVALID SIGNING METHOD",
-			}
-		}
-		return 0, nil
-	})
-	if err != nil {
-		return false, &apperrors.AuthError{
+		return "", &apperrors.TokenError{
 			Message: err.Error(),
 		}
 	}
-	return true, nil
+	return t, err
 }
 
-func CreateTokenPair(user *entity.User, cfg *config.Config) (*TokenPair, apperrors.AppError) {
+func CreateTokenPair(user entity.User, cfg config.Config) (TokenPair, apperrors.AppError) {
 	accToken, err := CreateToken(user, cfg.AccExp, cfg.AccSecr)
 	if err != nil {
-		return nil, err
+		fmt.Println("Create token error")
+		return TokenPair{}, err
 	}
 
 	refToken, err := CreateToken(user, cfg.RefExp, cfg.RefSecr)
 	if err != nil {
-		return nil, err
+		fmt.Println("Create token error")
+		return TokenPair{}, err
 	}
-	return &TokenPair{
+	return TokenPair{
 		Access:  accToken,
 		Refresh: refToken,
 	}, nil

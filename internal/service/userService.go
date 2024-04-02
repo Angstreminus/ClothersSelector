@@ -21,12 +21,12 @@ func NewUserService(repo *repository.UserRepository, log *logger.Logger) *UserSe
 	}
 }
 
-func (us *UserService) RegisterUser(toRegistrate dto.RegisterRequest) (*entity.User, apperrors.AppError) {
+func (us *UserService) RegisterUser(toRegistrate dto.RegisterRequest) (entity.User, apperrors.AppError) {
 	hashedPassword := HashPassword(toRegistrate.Password)
 	exists, err := us.UserExists(toRegistrate.Login)
 	if err != nil {
 		us.Logger.ZapLogger.Error("User already exists")
-		return nil, err
+		return entity.User{}, err
 	}
 	if !exists {
 		us.Logger.ZapLogger.Info("user does not exists")
@@ -42,7 +42,7 @@ func (us *UserService) RegisterUser(toRegistrate dto.RegisterRequest) (*entity.U
 		us.Logger.ZapLogger.Info("User filled in serveice")
 		return us.Ur.RegisterUser(usr)
 	}
-	return nil, &apperrors.UserExistError{
+	return entity.User{}, &apperrors.UserExistError{
 		Message: "User already exists",
 	}
 }

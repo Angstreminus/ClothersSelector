@@ -3,17 +3,20 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Angstreminus/ClothersSelector/config"
 	"github.com/Angstreminus/ClothersSelector/internal/apperrors"
-	"github.com/Angstreminus/ClothersSelector/internal/auth/token"
+	authtoken "github.com/Angstreminus/ClothersSelector/internal/auth/token"
 	"github.com/Angstreminus/ClothersSelector/internal/dto"
 	"github.com/Angstreminus/ClothersSelector/internal/service"
 	"github.com/Angstreminus/ClothersSelector/logger"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 type Cookie struct {
@@ -60,8 +63,11 @@ func (uh *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(respErr)
 		return
 	}
-	tokenPair, err := token.CreateTokenPair(user, uh.Config)
+	tokenPair, err := authtoken.CreateTokenPair(user, *uh.Config)
+	fmt.Println(tokenPair.Access)
+	fmt.Println(tokenPair.Refresh)
 	if err != nil {
+		fmt.Println("Hanler error after creating pair")
 		respErr := apperrors.MatchError(err)
 		w.WriteHeader(respErr.Status)
 		_ = json.NewEncoder(w).Encode(respErr)
@@ -109,8 +115,8 @@ func (uh *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 	var loginReq dto.LoginRequest
 	if err = json.Unmarshal(body, &loginReq); err != nil {
-		w.Header().Set("Content-Type", "application/json")
 		uh.Logger.ZapLogger.Error("Error to handle request")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
@@ -123,7 +129,8 @@ func (uh *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(respErr)
 		return
 	}
-	tokenPair, err := token.CreateTokenPair(user, uh.UserService.Ur.Chache.Config)
+	tokenPair, err := authtoken.CreateTokenPair(*user, *uh.UserService.Ur.Chache.Config)
+
 	if err != nil {
 		respErr := apperrors.MatchError(err)
 		w.WriteHeader(respErr.Status)
@@ -154,4 +161,55 @@ func (uh *UserHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Authorization", "Bearer "+tokenPair.Access)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+}
+
+func (uh UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	header := r.Header.Get("Authorization")
+	if header != "" {
+		bearerToken := strings.Split(header, " ")
+		if len(bearerToken) == 2 {
+			jwtClaims, err := authtoken.DecodeToken(bearerToken[1], uh.Config.AccSecr)
+			if err != nil {
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte("Invalid authorization token - does not match with user creds"))
+				return
+			}
+			login := jwtClaims["sub"].(string)
+			exist, err := uh.UserService.UserExists(login)
+			if err != nil || !exist {
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte("Invalid login"))
+				return
+			}
+			jwtClaims["exp"] = time.Now().Unix()
+			token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtClaims)
+			// TODO: End shutdown tokens
+			_, err = token.SignedString([]byte(uh.Config.AccSecr))
+			if err != nil {
+				if err != nil {
+					w.WriteHeader(http.StatusForbidden)
+					w.Write([]byte("Invalid authorization token - does not match with user creds"))
+					return
+				}
+			}
+			cookie, err := r.Cookie("Refresh")
+			if err != nil {
+				if err != http.ErrNoCookie {
+					w.WriteHeader(http.StatusForbidden)
+					w.Write([]byte(err.Error()))
+					return
+				}
+			}
+			cookie.Expires = time.Now()
+		} else {
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("Invalid authorization token"))
+		}
+	} else {
+		w.WriteHeader(http.StatusForbidden)
+	}
+}
+
+func (uh *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	return
 }

@@ -8,6 +8,6 @@ type RegisterRequest struct {
 }
 
 type LoginRequest struct {
-	Login    string `json:"login" validate:"required"`
-	Password string `json:"password" validate:"required"`
+	Login    string `json:"login"`
+	Password string `json:"password"`
 }

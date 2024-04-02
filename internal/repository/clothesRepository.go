@@ -15,46 +15,59 @@ type ClothesRepository struct {
 	Logger *logger.Logger
 }
 
-func (cr *ClothesRepository) Create(item dto.Clothes) (*entity.Clothes, apperrors.AppError) {
+func NewClothesRepository(db *sqlx.DB, log *logger.Logger) *ClothesRepository {
+	return &ClothesRepository{
+		Db:     db,
+		Logger: log,
+	}
+}
+
+func (cr *ClothesRepository) Create(item dto.Clothes) (entity.Clothes, apperrors.AppError) {
 	item.CreatedAt = time.Now().Local().UTC()
-	query := "INSERT INTO clothes (id, name, season, user_id, hashed_password, is_deleted, created_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, login, name, surname, role, hashed_password, is_deleted, created_at;"
+	query := "INSERT INTO clothes (id, name, type, link, is_deleted, created_at) VALUES($1, $2, $3, $4, $5, $6) RETURNING id, name, type, link, is_deleted, created_at;"
 	var cloth entity.Clothes
 	tx, err := cr.Db.Beginx()
+	cr.Logger.ZapLogger.Info("Db transact begin")
 	if err != nil {
+		cr.Logger.ZapLogger.Info("Db transact rollback")
+		tx.Rollback()
 		cr.Logger.ZapLogger.Error("Db Tx begin error")
-		return nil, &apperrors.DBoperationErr{
+		return entity.Clothes{}, &apperrors.DBoperationErr{
 			Message: err.Error(),
 		}
 	}
 	row := tx.QueryRow(query, &item.Id, &item.Name, &item.Type, &item.Link, &item.IsDeleted, &item.CreatedAt)
 	if err := row.Scan(&cloth); err != nil {
 		tx.Rollback()
+		cr.Logger.ZapLogger.Info("Db transact rollback")
 		cr.Logger.ZapLogger.Error("Query error")
-		return nil, &apperrors.DBoperationErr{
+		return entity.Clothes{}, &apperrors.DBoperationErr{
 			Message: err.Error(),
 		}
 	}
 
 	queryCP := "INSERT INTO clothers_presets (preset_id, cloth_id) VALUES($1, $2);"
-	res, err := tx.Exec(queryCP, &item.Id, &item.Id)
+	res, err := tx.Exec(queryCP, &item.PresetId, &item.Id)
 	if err != nil {
 		tx.Rollback()
+		cr.Logger.ZapLogger.Info("Db transact rollback")
 		cr.Logger.ZapLogger.Error("Query error")
-		return nil, &apperrors.DBoperationErr{
+		return entity.Clothes{}, &apperrors.DBoperationErr{
 			Message: err.Error(),
 		}
 	}
 	rowsAff, err := res.RowsAffected()
 	if rowsAff == 0 || err != nil {
+		cr.Logger.ZapLogger.Info("Db transact rollback")
 		tx.Rollback()
 		cr.Logger.ZapLogger.Error("Clothes presets not created")
-		return nil, &apperrors.DBoperationErr{
+		return entity.Clothes{}, &apperrors.DBoperationErr{
 			Message: "Clothes presets not created",
 		}
 	}
 	tx.Commit()
 	cr.Logger.ZapLogger.Info("Cloth item created")
-	return &cloth, nil
+	return cloth, nil
 }
 
 func (cr *ClothesRepository) GetClothes(clothId, presetId, season, userId string) ([]entity.Clothes, apperrors.AppError) {

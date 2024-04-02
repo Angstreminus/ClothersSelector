@@ -29,9 +29,9 @@ type Config struct {
 	RefExp        string
 }
 
-func NewConfig() (*Config, error) {
-	if err := godotenv.Load(); err != nil {
-		return nil, err
+func NewConfig() (Config, error) {
+	if err := godotenv.Load("../.env"); err != nil {
+		return Config{}, err
 	}
 	once.Do(
 		func() {
@@ -52,5 +52,5 @@ func NewConfig() (*Config, error) {
 				RefExp:        os.Getenv("REFRESH_TOKEN_EXPIRY_TIME"),
 			}
 		})
-	return config, nil
+	return *config, nil
 }

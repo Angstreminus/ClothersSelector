@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Angstreminus/ClothersSelector/internal/apperrors"
@@ -25,9 +26,12 @@ func NewPresetRepository(db *sqlx.DB, log *logger.Logger) *PresetRepository {
 
 func (pr *PresetRepository) CreatePreset(preset *entity.Preset) (*entity.Preset, apperrors.AppError) {
 	preset.CreatedAt = time.Now().Local().UTC()
-	query := "INSERT INTO presets (id, name, season, user_id, hashed_password, is_deleted, created_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, login, name, surname, role, hashed_password, is_deleted, created_at;"
+	query := "INSERT INTO presets (id, name, season, user_id, is_deleted, created_at) VALUES($1, $2, $3, $4, $5, $6) RETURNING id, name, season, user_id, is_deleted, created_at;"
 	var prst entity.Preset
-	row := pr.DB.QueryRowx(query, &preset.UserId, &preset.Season, &preset.IsDeleted, &preset.CreatedAt)
+	fmt.Println("Preset userId")
+	fmt.Println(preset.UserId)
+	fmt.Println("Preset userId end")
+	row := pr.DB.QueryRowx(query, &preset.Id, &preset.Name, &preset.Season, &preset.UserId, &preset.IsDeleted, &preset.CreatedAt)
 	if err := row.StructScan(&prst); err != nil {
 		pr.Logger.ZapLogger.Error("Query error")
 		return nil, &apperrors.DBoperationErr{

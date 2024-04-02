@@ -21,7 +21,7 @@ func NewClothesService(repo *repository.ClothesRepository, log *logger.Logger) *
 	}
 }
 
-func (cs *ClothesService) CreateItem(toCreate dto.Clothes) (*entity.Clothes, apperrors.AppError) {
+func (cs *ClothesService) CreateItem(toCreate dto.Clothes) (entity.Clothes, apperrors.AppError) {
 	toCreate.Id = uuid.New().String()
 	toCreate.IsDeleted = false
 	return cs.Repo.Create(toCreate)
